@@ -1,0 +1,890 @@
+// KI-gestützte B2B-Vertriebsplattform – Datenmodell
+// Alle fachlichen Tabellen tragen tenantId (direkt oder über den Eltern-Datensatz),
+// damit die Plattform später mandantenfähig betrieben werden kann.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────── Mandant, Benutzer, Einstellungen ─────────────
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  users         User[]
+  settings      Setting[]
+  companies     Company[]
+  contacts      Contact[]
+  stages        PipelineStage[]
+  rooms         Room[]
+  activities    Activity[]
+  tasks         Task[]
+  outreach      OutreachMessage[]
+  meetings      Meeting[]
+  categories    ProblemCategory[]
+  solutions     Solution[]
+  services      Service[]
+  packages      ServicePackage[]
+  offerTemplates OfferTemplate[]
+  offers        Offer[]
+  analyses      EconomicAnalysis[]
+  findings      Finding[]
+  projects      Project[]
+  savedSearches SavedSearch[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  outbox        OutboxEmail[]
+  jobs          Job[]
+}
+
+enum Role {
+  ADMIN
+  CONSULTANT
+  VIEWER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(CONSULTANT)
+  title        String?
+  phone        String?
+  bio          String?
+  avatarUrl    String?
+  calendarUrl  String?
+  linkedinUrl  String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  sessions       UserSession[]
+  ownedCompanies Company[]      @relation("CompanyOwner")
+  rooms          Room[]         @relation("RoomConsultant")
+  tasks          Task[]
+  activities     Activity[]
+  notifications  Notification[]
+}
+
+model UserSession {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+}
+
+/// Schlüssel/Wert-Einstellungen je Mandant (ICP, Scoring, Datenschutz, Integrationen …)
+model Setting {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  key       String
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, key])
+}
+
+// ───────────── Unternehmen, Kontakte, Recherche ─────────────
+
+enum InfoStatus {
+  VERIFIED // verifiziert (Quelle vorhanden)
+  ESTIMATED // plausible Schätzung
+  HYPOTHESIS // KI- oder Regel-Hypothese
+  UNKNOWN // unbekannt
+}
+
+enum QualificationStatus {
+  NEW
+  IN_PROGRESS
+  REVENUE_REVIEW // Umsatz unbekannt → Prüfwarteschlange
+  QUALIFIED
+  DISQUALIFIED
+}
+
+model PipelineStage {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  key      String
+  name     String
+  order    Int
+  color    String  @default("#64748b")
+  isWon    Boolean @default(false)
+  isLost   Boolean @default(false)
+  probability Int  @default(0)
+
+  companies Company[]
+
+  @@unique([tenantId, key])
+}
+
+model Company {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name           String
+  normalizedName String
+  website        String?
+  domain         String?
+  linkedinUrl    String?
+  industry       String?
+  location       String?
+  country        String? @default("DE")
+
+  revenueEur     Float?
+  revenueYear    Int?
+  revenueSource  String?
+  revenueStatus  InfoStatus @default(UNKNOWN)
+  employees      Int?
+  employeesStatus InfoStatus @default(UNKNOWN)
+  salesTeamSize  Int?
+
+  products       String?
+  markets        String?
+  businessModel  String?
+  ownership      String?
+  technologies   String?
+  description    String?
+
+  // Bewertungsgrundlagen (1–5, null = unbekannt)
+  salesDependency   Int?
+  digitalSignals    Int?
+  regulatoryHurdle  Int?
+  procurementEffort Int?
+
+  qualificationStatus QualificationStatus @default(NEW)
+  qualificationNote   String?
+  score               Int?
+  scoreBreakdown      Json?
+  scoredAt            DateTime?
+
+  stageId     String?
+  stage       PipelineStage? @relation(fields: [stageId], references: [id])
+  stageSince  DateTime       @default(now())
+  ownerId     String?
+  owner       User?          @relation("CompanyOwner", fields: [ownerId], references: [id])
+  dealValue   Float?
+  lostReason  String?
+
+  source       String  @default("MANUAL") // MANUAL, CSV, SALES_NAVIGATOR, CRM, DATA_PROVIDER
+  salesNavRef  String?
+  notes        String?
+  researchedAt DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  contacts     Contact[]
+  facts        CompanyFact[]
+  hypotheses   ImprovementHypothesis[]
+  room         Room?
+  activities   Activity[]
+  tasks        Task[]
+  outreach     OutreachMessage[]
+  meetings     Meeting[]
+  findings     Finding[]
+  solutions    CompanySolution[]
+  analyses     EconomicAnalysis[]
+  offers       Offer[]
+  projects     Project[]
+  seoScans     SeoScan[]
+
+  @@index([tenantId, normalizedName])
+  @@index([tenantId, domain])
+}
+
+/// Recherchierte Einzelinformation inkl. Quelle, Abrufdatum und Verifizierungsstatus
+model CompanyFact {
+  id          String     @id @default(cuid())
+  companyId   String
+  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category    String // z.B. "Umsatz", "Nachricht", "Technologie", "Produkte"
+  label       String
+  value       String
+  status      InfoStatus @default(HYPOTHESIS)
+  sourceName  String?
+  sourceUrl   String?
+  retrievedAt DateTime?
+  origin      String     @default("USER") // USER, AI, RULE, IMPORT
+  reviewed    Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+}
+
+enum HypothesisStatus {
+  HYPOTHESIS
+  CONFIRMED
+  REJECTED
+}
+
+/// Mögliche Verbesserungsthemen – zunächst Hypothesen, keine festgestellten Schwächen
+model ImprovementHypothesis {
+  id            String           @id @default(cuid())
+  companyId     String
+  company       Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  topic         String
+  rationale     String
+  status        HypothesisStatus @default(HYPOTHESIS)
+  origin        String           @default("USER") // USER, AI, RULE
+  reviewed      Boolean          @default(false)
+  visibleInRoom Boolean          @default(false)
+  order         Int              @default(0)
+  createdAt     DateTime         @default(now())
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  firstName    String
+  lastName     String
+  title        String?
+  roleCategory String? // CEO, OWNER, SALES_HEAD, CCO, BD, COO, DIGITAL, OTHER
+  email        String?
+  phone        String?
+  linkedinUrl  String?
+  salesNavUrl  String?
+  isPrimary    Boolean  @default(false)
+  notes        String?
+  outreachStatus String @default("NONE") // NONE, PREPARED, SENT, REPLIED, NO_RESPONSE
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  invites  RoomInvite[]
+  outreach OutreachMessage[]
+
+  @@index([tenantId, linkedinUrl])
+}
+
+model SavedSearch {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  salesNavUrl String?
+  filters     Json
+  notes       String?
+  lastRunAt   DateTime?
+  createdAt   DateTime @default(now())
+}
+
+// ───────────── Kundenwelten ─────────────
+
+enum RoomStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Room {
+  id        String     @id @default(cuid())
+  tenantId  String
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId String     @unique
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  slug      String     @unique
+  status    RoomStatus @default(DRAFT)
+
+  language     String  @default("de")
+  displayName  String // Name, mit dem das Unternehmen begrüßt wird
+  greeting     String
+  intro        String
+  approachText String
+  logoUrl      String?
+  primaryColor String  @default("#0f172a")
+  accentColor  String  @default("#c8a96a")
+  modules      Json // { greeting: true, calculator: true, ... }
+  calculator   Json // Startwerte des Potenzialrechners
+  consultantId String?
+  consultant   User?   @relation("RoomConsultant", fields: [consultantId], references: [id])
+
+  requireEmailVerification Boolean   @default(false)
+  liveAvailable            Boolean   @default(false)
+  publishedAt              DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  invites   RoomInvite[]
+  sessions  RoomSession[]
+  events    RoomEvent[]
+  meetings  Meeting[]
+  messages  RoomMessage[]
+  documents Document[]
+  offers    Offer[]
+}
+
+model RoomInvite {
+  id         String    @id @default(cuid())
+  roomId     String
+  room       Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  contactId  String?
+  contact    Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  tokenHash  String    @unique
+  tokenHint  String // letzte 4 Zeichen, nur zur Wiedererkennung
+  label      String?
+  email      String? // falls E-Mail-Verifizierung: erwartete Adresse
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  maxUses    Int?
+  useCount   Int       @default(0)
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  sessions RoomSession[]
+}
+
+/// Sitzung eines Besuchers in einer Kundenwelt (nach Einlösen einer Einladung)
+model RoomSession {
+  id         String      @id @default(cuid())
+  roomId     String
+  room       Room        @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  inviteId   String
+  invite     RoomInvite  @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+  tokenHash  String      @unique
+
+  verifiedEmail String?
+  verifiedAt    DateTime?
+  displayName   String?
+
+  presenceConsent   Boolean   @default(false) // darf Berater Anwesenheit sehen?
+  analyticsConsent  Boolean   @default(false) // darf Abschnitts-Nutzung erfasst werden?
+  consentDecidedAt  DateTime?
+  followPresenter   Boolean   @default(false) // folgt der Navigation des Beraters
+
+  currentSection String?
+  lastSeenAt     DateTime  @default(now())
+  expiresAt      DateTime
+  endedAt        DateTime?
+  createdAt      DateTime  @default(now())
+
+  verifications EmailVerification[]
+  events        RoomEvent[]
+}
+
+model EmailVerification {
+  id        String      @id @default(cuid())
+  sessionId String
+  session   RoomSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  email     String
+  codeHash  String
+  attempts  Int         @default(0)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime    @default(now())
+}
+
+model RoomEvent {
+  id        String       @id @default(cuid())
+  roomId    String
+  room      Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sessionId String?
+  session   RoomSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  type      String // INVITE_REDEEMED, SESSION_START, SECTION_VIEW, CALC_USED, CALL_REQUESTED, OFFER_VIEWED …
+  meta      Json?
+  createdAt DateTime     @default(now())
+
+  @@index([roomId, createdAt])
+}
+
+model RoomMessage {
+  id          String   @id @default(cuid())
+  roomId      String
+  room        Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  offerId     String?
+  offer       Offer?   @relation(fields: [offerId], references: [id], onDelete: SetNull)
+  fromVisitor Boolean
+  authorName  String
+  body        String
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
+}
+
+enum DocVisibility {
+  INTERNAL
+  ROOM
+}
+
+model Document {
+  id           String        @id @default(cuid())
+  roomId       String
+  room         Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  name         String
+  mimeType     String
+  size         Int
+  storageKey   String        @unique
+  visibility   DocVisibility @default(INTERNAL)
+  uploadedById String?
+  createdAt    DateTime      @default(now())
+}
+
+// ───────────── Aktivitäten, Aufgaben, Outreach ─────────────
+
+model Activity {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  type      String // NOTE, CALL, EMAIL, LINKEDIN, STAGE_CHANGE, ROOM_VISIT, MEETING, OFFER, SYSTEM …
+  title     String
+  body      String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+}
+
+model Task {
+  id         String    @id @default(cuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId  String?
+  company    Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assigneeId String?
+  assignee   User?     @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  title      String
+  description String?
+  dueAt      DateTime?
+  doneAt     DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+enum OutreachStatus {
+  DRAFT
+  APPROVED // menschlich freigegeben
+  SENT // manuell versendet und dokumentiert
+  REPLIED
+  NO_RESPONSE
+}
+
+model OutreachMessage {
+  id         String         @id @default(cuid())
+  tenantId   String
+  tenant     Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId  String
+  company    Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contactId  String?
+  contact    Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  channel    String         @default("LINKEDIN") // LINKEDIN, LINKEDIN_INMAIL, EMAIL
+  kind       String         @default("INITIAL") // INITIAL, FOLLOW_UP
+  body       String
+  origin     String         @default("TEMPLATE") // TEMPLATE, AI, USER
+  status     OutreachStatus @default(DRAFT)
+  inviteUrlIncluded Boolean @default(false)
+  approvedAt DateTime?
+  sentAt     DateTime?
+  followUpAt DateTime?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+}
+
+// ───────────── Gespräche / Video ─────────────
+
+enum MeetingStatus {
+  OFFERED // Berater bietet Live-Gespräch an
+  REQUESTED // Besucher fragt Gespräch/Termin an
+  ACCEPTED
+  SCHEDULED
+  LIVE
+  DECLINED
+  LATER
+  ENDED
+  CANCELLED
+}
+
+model Meeting {
+  id          String        @id @default(cuid())
+  tenantId    String
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId   String
+  company     Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  roomId      String?
+  room        Room?         @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  status      MeetingStatus
+  kind        String        @default("LIVE") // LIVE, SCHEDULED
+  initiatedBy String // CONSULTANT, VISITOR
+  visitorSessionId String?
+  visitorMessage   String?
+  preferredTimes   String?
+  scheduledAt DateTime?
+  videoRoomName String      @unique
+  startedAt   DateTime?
+  endedAt     DateTime?
+
+  // Gemeinsames Navigieren (nur mit Zustimmung des Besuchers wirksam)
+  presenterActive  Boolean   @default(false)
+  presenterSection String?
+  presenterUpdatedAt DateTime?
+
+  recordingConsent     Boolean @default(false)
+  transcriptionConsent Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  notes    MeetingNote[]
+  findings Finding[]
+}
+
+model MeetingNote {
+  id        String   @id @default(cuid())
+  meetingId String
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  area      String? // NEUKUNDEN, PROZESSE, BESTAND, DATEN, AUTOMATISIERUNG, ALLGEMEIN
+  body      String
+  createdAt DateTime @default(now())
+}
+
+// ───────────── Potenzialanalyse & Katalog ─────────────
+
+model ProblemCategory {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  key         String
+  name        String
+  description String?
+  order       Int       @default(0)
+  questions   Json      @default("[]") // Leitfragen für die Analyse
+  problems    Problem[]
+
+  @@unique([tenantId, key])
+}
+
+model Problem {
+  id          String            @id @default(cuid())
+  categoryId  String
+  category    ProblemCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  indicators  String?
+  active      Boolean           @default(true)
+  solutions   ProblemSolution[]
+  findings    Finding[]
+}
+
+model Solution {
+  id          String             @id @default(cuid())
+  tenantId    String
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  benefits    String?
+  active      Boolean            @default(true)
+  problems    ProblemSolution[]
+  services    SolutionService[]
+  companies   CompanySolution[]
+}
+
+model ProblemSolution {
+  problemId  String
+  problem    Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  solutionId String
+  solution   Solution @relation(fields: [solutionId], references: [id], onDelete: Cascade)
+
+  @@id([problemId, solutionId])
+}
+
+enum PricingModel {
+  FIXED
+  HOURLY
+  DAILY
+  MONTHLY
+  YEARLY
+  PER_UNIT
+}
+
+model Service {
+  id           String       @id @default(cuid())
+  tenantId     String
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  pricingModel PricingModel @default(FIXED)
+  unitPrice    Float        @default(0)
+  unit         String?
+  recurring    Boolean      @default(false)
+  active       Boolean      @default(true)
+  solutions    SolutionService[]
+  dependsOn    ServiceDependency[] @relation("ServiceDeps")
+  requiredBy   ServiceDependency[] @relation("ServiceRequiredBy")
+  packageItems ServicePackageItem[]
+  offerItems   OfferItem[]
+}
+
+model SolutionService {
+  solutionId String
+  solution   Solution @relation(fields: [solutionId], references: [id], onDelete: Cascade)
+  serviceId  String
+  service    Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@id([solutionId, serviceId])
+}
+
+model ServiceDependency {
+  serviceId   String
+  service     Service @relation("ServiceDeps", fields: [serviceId], references: [id], onDelete: Cascade)
+  dependsOnId String
+  dependsOn   Service @relation("ServiceRequiredBy", fields: [dependsOnId], references: [id], onDelete: Cascade)
+
+  @@id([serviceId, dependsOnId])
+}
+
+model ServicePackage {
+  id          String               @id @default(cuid())
+  tenantId    String
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  items       ServicePackageItem[]
+}
+
+model ServicePackageItem {
+  packageId String
+  package   ServicePackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  serviceId String
+  service   Service        @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  quantity  Float          @default(1)
+
+  @@id([packageId, serviceId])
+}
+
+model OfferTemplate {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name     String
+  sections Json // Standardtexte je Angebotsabschnitt
+}
+
+/// Gemeinsam dokumentiertes Problem / Erkenntnis aus der Potenzialanalyse
+model Finding {
+  id             String     @id @default(cuid())
+  tenantId       String
+  tenant         Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId      String
+  company        Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  meetingId      String?
+  meeting        Meeting?   @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  problemId      String?
+  problem        Problem?   @relation(fields: [problemId], references: [id], onDelete: SetNull)
+  area           String
+  title          String
+  description    String?
+  cause          String?
+  impact         String?
+  status         HypothesisStatus @default(HYPOTHESIS)
+  origin         String     @default("USER")
+  shareWithClient Boolean   @default(false)
+  createdAt      DateTime   @default(now())
+}
+
+model CompanySolution {
+  id              String   @id @default(cuid())
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  solutionId      String
+  solution        Solution @relation(fields: [solutionId], references: [id], onDelete: Cascade)
+  findingIds      Json     @default("[]")
+  status          String   @default("PROPOSED") // PROPOSED, SELECTED, REJECTED
+  note            String?
+  shareWithClient Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  @@unique([companyId, solutionId])
+}
+
+model EconomicAnalysis {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name            String
+  inputs          Json
+  assumptions     String?
+  shareWithClient Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ───────────── Angebote & Projekte ─────────────
+
+enum OfferStatus {
+  DRAFT
+  PUBLISHED
+  ACCEPTED
+  DECLINED
+  SUPERSEDED
+  WITHDRAWN
+}
+
+model Offer {
+  id         String      @id @default(cuid())
+  tenantId   String
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId  String
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  roomId     String?
+  room       Room?       @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  analysisId String?
+  number     String
+  version    Int         @default(1)
+  previousId String?
+  title      String
+  status     OfferStatus @default(DRAFT)
+  sections   Json
+  validUntil DateTime?
+  publishedAt DateTime?
+  firstViewedAt DateTime?
+
+  // Elektronische Annahme – dokumentiert, siehe docs/ANGEBOTSANNAHME.md
+  acceptedAt       DateTime?
+  acceptedByName   String?
+  acceptedByEmail  String?
+  acceptedRole     String?
+  acceptanceText   String?
+  acceptanceHash   String? // SHA-256 über Angebotsinhalt zum Zeitpunkt der Annahme
+  acceptanceSessionId String?
+  declinedAt       DateTime?
+  declineReason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items    OfferItem[]
+  messages RoomMessage[]
+  project  Project?
+
+  @@unique([tenantId, number, version])
+}
+
+model OfferItem {
+  id           String       @id @default(cuid())
+  offerId      String
+  offer        Offer        @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  serviceId    String?
+  service      Service?     @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  name         String
+  description  String?
+  pricingModel PricingModel @default(FIXED)
+  quantity     Float        @default(1)
+  unit         String?
+  unitPrice    Float        @default(0)
+  recurring    Boolean      @default(false)
+  optional     Boolean      @default(false)
+  phase        String?
+  order        Int          @default(0)
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  offerId   String?  @unique
+  offer     Offer?   @relation(fields: [offerId], references: [id], onDelete: SetNull)
+  name      String
+  status    String   @default("PLANNED") // PLANNED, ACTIVE, ON_HOLD, DONE
+  startDate DateTime?
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+// ───────────── Integrationen ─────────────
+
+model SeoScan {
+  id              String   @id @default(cuid())
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  url             String
+  source          String // API, MANUAL_IMPORT
+  status          String   @default("IMPORTED")
+  score           Int?
+  summary         String?
+  issues          Json     @default("[]")
+  shareWithClient Boolean  @default(false)
+  scannedAt       DateTime?
+  createdAt       DateTime @default(now())
+}
+
+// ───────────── System ─────────────
+
+model Notification {
+  id        String    @id @default(cuid())
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([tenantId, createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actorType String // USER, VISITOR, SYSTEM
+  actorId   String?
+  action    String
+  entity    String?
+  entityId  String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+}
+
+model OutboxEmail {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  to        String
+  subject   String
+  body      String
+  status    String // SENT, FAILED, NOT_CONFIGURED
+  error     String?
+  createdAt DateTime @default(now())
+}
+
+model Job {
+  id        String    @id @default(cuid())
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type      String
+  payload   Json
+  status    String    @default("PENDING") // PENDING, RUNNING, DONE, FAILED
+  attempts  Int       @default(0)
+  error     String?
+  runAt     DateTime  @default(now())
+  startedAt DateTime?
+  finishedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([status, runAt])
+}
