@@ -24,6 +24,7 @@ services:
   app:
     build: .
     image: kivertrieb-app:local
+    pull_policy: build
     restart: unless-stopped
     mem_limit: 768m
     env_file: .env
@@ -44,6 +45,7 @@ services:
 
   worker:
     image: kivertrieb-app:local
+    pull_policy: never   # nutzt das vom app-Service lokal gebaute Image
     restart: unless-stopped
     mem_limit: 256m
     command: npm run worker
