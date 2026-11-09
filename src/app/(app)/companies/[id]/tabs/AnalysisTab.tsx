@@ -45,10 +45,10 @@ export default async function AnalysisTab({ companyId, user }: TabProps) {
                 </div>
                 <form action={updateFinding} className="flex flex-wrap gap-1">
                   <input type="hidden" name="id" value={f.id} />
-                  {f.status !== "CONFIRMED" && <button name="action" value="confirm" className="btn-secondary btn-sm">Bestätigt</button>}
-                  {f.status !== "REJECTED" && <button name="action" value="reject" className="btn-secondary btn-sm">Verwerfen</button>}
-                  <button name="action" value="share" className="btn-secondary btn-sm">{f.shareWithClient ? "Freigabe entziehen" : "Freigeben"}</button>
-                  <button name="action" value="delete" className="btn-danger btn-sm">Löschen</button>
+                  {f.status !== "CONFIRMED" && <SubmitButton name="action" value="confirm" className="btn-secondary btn-sm">Bestätigt</SubmitButton>}
+                  {f.status !== "REJECTED" && <SubmitButton name="action" value="reject" className="btn-secondary btn-sm">Verwerfen</SubmitButton>}
+                  <SubmitButton name="action" value="share" className="btn-secondary btn-sm">{f.shareWithClient ? "Freigabe entziehen" : "Freigeben"}</SubmitButton>
+                  <SubmitButton name="action" value="delete" className="btn-danger btn-sm">Löschen</SubmitButton>
                 </form>
               </li>
             ))}
@@ -86,10 +86,10 @@ export default async function AnalysisTab({ companyId, user }: TabProps) {
                   {cs.shareWithClient && <Badge tone="green">in Kundenwelt</Badge>}
                   <form action={updateCompanySolution} className="ml-auto flex flex-wrap gap-1">
                     <input type="hidden" name="id" value={cs.id} />
-                    {cs.status !== "SELECTED" && <button name="action" value="select" className="btn-primary btn-sm" data-testid="select-solution">Auswählen</button>}
-                    {cs.status !== "REJECTED" && <button name="action" value="reject" className="btn-secondary btn-sm">Verwerfen</button>}
-                    <button name="action" value="share" className="btn-secondary btn-sm">{cs.shareWithClient ? "Freigabe entziehen" : "Freigeben"}</button>
-                    <button name="action" value="delete" className="btn-danger btn-sm">Entfernen</button>
+                    {cs.status !== "SELECTED" && <SubmitButton name="action" value="select" className="btn-primary btn-sm" data-testid="select-solution">Auswählen</SubmitButton>}
+                    {cs.status !== "REJECTED" && <SubmitButton name="action" value="reject" className="btn-secondary btn-sm">Verwerfen</SubmitButton>}
+                    <SubmitButton name="action" value="share" className="btn-secondary btn-sm">{cs.shareWithClient ? "Freigabe entziehen" : "Freigeben"}</SubmitButton>
+                    <SubmitButton name="action" value="delete" className="btn-danger btn-sm">Entfernen</SubmitButton>
                   </form>
                 </div>
                 {cs.solution.description && <p className="mt-1 text-sm text-ink-600">{cs.solution.description}</p>}
@@ -125,8 +125,8 @@ export default async function AnalysisTab({ companyId, user }: TabProps) {
                 {a.shareWithClient && <Badge tone="green">in Kundenwelt</Badge>}
                 <form action={updateAnalysis} className="ml-auto flex gap-1">
                   <input type="hidden" name="id" value={a.id} />
-                  <button name="action" value="share" className="btn-secondary btn-sm">{a.shareWithClient ? "Freigabe entziehen" : "Freigeben"}</button>
-                  <button name="action" value="delete" className="btn-danger btn-sm">Löschen</button>
+                  <SubmitButton name="action" value="share" className="btn-secondary btn-sm">{a.shareWithClient ? "Freigabe entziehen" : "Freigeben"}</SubmitButton>
+                  <SubmitButton name="action" value="delete" className="btn-danger btn-sm">Löschen</SubmitButton>
                 </form>
               </summary>
               <div className="mt-4">

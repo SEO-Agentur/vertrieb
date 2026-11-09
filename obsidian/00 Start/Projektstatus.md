@@ -1,5 +1,5 @@
 # Projektstatus
-*Stand: 09.11.2026 – bei Änderungen aktualisieren*
+*Stand: 09.11.2026 (abends) – bei Änderungen aktualisieren*
 
 ## Erledigt
 - Plattform Phasen 1–5 implementiert (Prospecting, Qualifizierung, Kundenwelt, Outreach, Video, Analyse, Angebote)
@@ -13,8 +13,10 @@
 ## In Arbeit
 - Produktivstart: `.env` neu schreiben (ohne Kommentare), DB zurücksetzen, Seed → siehe [[Server & Deployment]]
 
+## Verifiziert
+- End-to-End-Test 26/26 Schritte (`npm run test:e2e`), Details in `docs/STATUS.md`
+
 ## Nicht verifiziert
-- Kompletter End-to-End-Ablauf im Browser (Import → Angebot → Annahme)
 - Echte Videoverbindung (braucht LiveKit-Zugang)
 
 ## Nicht aktiviert (Zugangsdaten fehlen)

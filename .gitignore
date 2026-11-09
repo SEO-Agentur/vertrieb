@@ -10,3 +10,4 @@ test-results/
 deploy/certs/
 obsidian/.obsidian/workspace*
 obsidian/.obsidian/cache
+backups/

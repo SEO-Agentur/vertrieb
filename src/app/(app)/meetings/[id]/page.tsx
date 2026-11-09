@@ -65,8 +65,8 @@ export default async function MeetingWorkspace({ params, searchParams }: { param
               <form action={respondMeeting} className="flex flex-wrap items-end gap-2">
                 <input type="hidden" name="meetingId" value={m.id} />
                 <label><span className="label">Termin (leer = jetzt live)</span><input type="datetime-local" name="scheduledAt" className="input" /></label>
-                <button name="decision" value="accept" className="btn-primary">Annehmen</button>
-                <button name="decision" value="decline" className="btn-secondary">Ablehnen</button>
+                <SubmitButton name="decision" value="accept" className="btn-primary">Annehmen</SubmitButton>
+                <SubmitButton name="decision" value="decline" className="btn-secondary">Ablehnen</SubmitButton>
               </form>
             </div>
           )}

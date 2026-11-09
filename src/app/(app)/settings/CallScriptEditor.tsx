@@ -1,5 +1,6 @@
 "use client";
 import { useActionState } from "react";
+import { SubmitButton } from "@/components/SubmitButton";
 import { saveCallScriptAction, type SaveScriptState } from "../calls/actions";
 
 export function CallScriptEditor({ initial, isAdmin, isDefault }: { initial: string; isAdmin: boolean; isDefault: boolean }) {
@@ -19,7 +20,7 @@ export function CallScriptEditor({ initial, isAdmin, isDefault }: { initial: str
       {isAdmin && (
         <div className="flex gap-2">
           <button className="btn-primary" disabled={pending}>{pending ? "Prüfe …" : "Leitfaden speichern"}</button>
-          <button name="reset" value="1" className="btn-secondary" disabled={pending} onClick={(e) => { if (!confirm("Auf Standard-Leitfaden zurücksetzen?")) e.preventDefault(); }}>Standard wiederherstellen</button>
+          <SubmitButton name="reset" value="1" className="btn-secondary" confirm="Auf Standard-Leitfaden zurücksetzen?">Standard wiederherstellen</SubmitButton>
         </div>
       )}
     </form>

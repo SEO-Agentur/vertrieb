@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SubmitButton } from "@/components/SubmitButton";
 import type { MeetingStatus } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -46,8 +47,8 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
                 <form action={respondMeeting} className="flex flex-wrap items-end gap-2">
                   <input type="hidden" name="meetingId" value={m.id} />
                   <input type="datetime-local" name="scheduledAt" className="input w-auto" aria-label="Termin" />
-                  <button name="decision" value="accept" className="btn-primary btn-sm">Annehmen</button>
-                  <button name="decision" value="decline" className="btn-secondary btn-sm">Ablehnen</button>
+                  <SubmitButton name="decision" value="accept" className="btn-primary btn-sm">Annehmen</SubmitButton>
+                  <SubmitButton name="decision" value="decline" className="btn-secondary btn-sm">Ablehnen</SubmitButton>
                 </form>
               </li>
             ))}

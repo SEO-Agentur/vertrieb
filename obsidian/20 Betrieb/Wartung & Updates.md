@@ -12,7 +12,7 @@ curl -s http://127.0.0.1:4300/api/health
 
 ## Backup
 `docker compose -f docker-compose.prod.yml exec -T db pg_dump -U postgres salesplatform | gzip > /root/kivertrieb-$(date +%F).sql.gz`
-+ Volume `kivertrieb_storage`. Automatisierung: offen (Asana).
++ Volume `kivertrieb_storage`. Automatisch: Container `backup`, täglich 03:17 UTC nach `/opt/kivertrieb/backups/` (14 Tage). Kopie außerhalb des Servers noch einrichten.
 
 ## Lokale Entwicklung (Mac)
 `cd vertrieb && docker compose up -d db && npm run dev` → http://localhost:3000

@@ -40,7 +40,7 @@ export default async function MeetingsTab({ companyId }: TabProps) {
                 <span className="text-xs text-ink-500">{m._count.notes} Notizen · {m._count.findings} Erkenntnisse · erstellt {dateTime(m.createdAt)}</span>
                 <span className="ml-auto flex gap-2">
                   {["OFFERED", "REQUESTED", "ACCEPTED", "SCHEDULED"].includes(m.status) && (
-                    <form action={respondMeeting}><input type="hidden" name="meetingId" value={m.id} /><button name="decision" value="cancel" className="btn-ghost btn-sm">Absagen</button></form>
+                    <form action={respondMeeting}><input type="hidden" name="meetingId" value={m.id} /><SubmitButton name="decision" value="cancel" className="btn-ghost btn-sm">Absagen</SubmitButton></form>
                   )}
                   <Link className="btn-primary btn-sm" href={`/meetings/${m.id}`}>Workspace öffnen</Link>
                 </span>

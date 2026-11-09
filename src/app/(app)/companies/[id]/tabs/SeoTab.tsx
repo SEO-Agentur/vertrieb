@@ -49,8 +49,8 @@ export default async function SeoTab({ companyId }: TabProps) {
                 {s.shareWithClient && <Badge tone="green">in Kundenwelt</Badge>}
                 <form action={updateSeoScan} className="ml-auto flex gap-1">
                   <input type="hidden" name="id" value={s.id} />
-                  <button name="action" value="share" className="btn-secondary btn-sm">{s.shareWithClient ? "Freigabe entziehen" : "In Kundenwelt freigeben"}</button>
-                  <button name="action" value="delete" className="btn-danger btn-sm">Löschen</button>
+                  <SubmitButton name="action" value="share" className="btn-secondary btn-sm">{s.shareWithClient ? "Freigabe entziehen" : "In Kundenwelt freigeben"}</SubmitButton>
+                  <SubmitButton name="action" value="delete" className="btn-danger btn-sm">Löschen</SubmitButton>
                 </form>
               </div>
               {s.summary && <p className="mb-2 text-sm text-ink-600">{s.summary}</p>}

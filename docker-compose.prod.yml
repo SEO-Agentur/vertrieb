@@ -57,6 +57,21 @@ services:
       db: { condition: service_healthy }
       app: { condition: service_started }
 
+  backup:
+    image: postgres:16.4
+    restart: unless-stopped
+    mem_limit: 128m
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    # Täglich um 03:17 Uhr (Containerzeit UTC). Manuell: docker compose -f docker-compose.prod.yml exec backup /backup.sh
+    entrypoint: ["sh", "-c", "while true; do if [ \"$$(date +%H%M)\" = \"0317\" ]; then /backup.sh; sleep 61; fi; sleep 30; done"]
+    volumes:
+      - ./deploy/backup.sh:/backup.sh:ro
+      - ./backups:/backups
+      - storage:/storage:ro
+    depends_on:
+      db: { condition: service_healthy }
+
 volumes:
   pgdata:
   storage:

@@ -103,7 +103,7 @@ export default async function OfferEditor({ params, searchParams }: { params: Pr
                         <input name="unitPrice" type="number" step="0.01" min={0} defaultValue={i.unitPrice} className="input" aria-label="Einzelpreis" />
                         <input name="unit" defaultValue={i.unit ?? ""} placeholder="Einheit" className="input" />
                         <span className="flex items-center gap-3 text-xs"><label><input type="checkbox" name="recurring" defaultChecked={i.recurring} /> laufend</label><label><input type="checkbox" name="optional" defaultChecked={i.optional} /> optional</label></span>
-                        <div className="col-span-2 flex gap-2"><button name="action" value="save" className="btn-primary btn-sm">Speichern</button><button name="action" value="delete" className="btn-danger btn-sm">Entfernen</button></div>
+                        <div className="col-span-2 flex gap-2"><SubmitButton name="action" value="save" className="btn-primary btn-sm">Speichern</SubmitButton><SubmitButton name="action" value="delete" className="btn-danger btn-sm">Entfernen</SubmitButton></div>
                       </form>
                     </details>
                   ) : (

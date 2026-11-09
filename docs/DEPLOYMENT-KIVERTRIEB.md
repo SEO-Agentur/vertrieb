@@ -59,7 +59,12 @@ cd /opt/kivertrieb && git pull && docker compose -f docker-compose.prod.yml up -
 ```
 Migrationen laufen beim Start des App-Containers automatisch.
 
-## Backups
+## Backups (automatisch)
+Der Container `backup` sichert täglich um 03:17 Uhr (UTC) Datenbank und Dokumente nach `/opt/kivertrieb/backups/` (14 Tage).
+Manuell auslösen: `docker compose -f docker-compose.prod.yml exec backup /backup.sh`
+Zusätzlich die Dateien in `backups/` regelmäßig vom Server herunterladen (z.B. per `scp`), damit eine Kopie außerhalb des Servers existiert.
+
+Manueller Einzel-Dump:
 ```bash
 cd /opt/kivertrieb && docker compose -f docker-compose.prod.yml exec -T db pg_dump -U postgres salesplatform | gzip > /root/kivertrieb-$(date +%F).sql.gz
 ```
