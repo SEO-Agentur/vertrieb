@@ -1,0 +1,19 @@
+# TLS mit Cloudflare-Origin-Zertifikat (Cloudflare: SSL/TLS-Modus "Full (strict)")
+(origin_tls) {
+	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+}
+
+app.kivertrieb.net {
+	import origin_tls
+	encode gzip
+	# flush_interval -1: Server-Sent Events (Live-Besucher) sofort durchreichen
+	reverse_proxy app:3000 {
+		flush_interval -1
+	}
+}
+
+# Bis eine eigene Website existiert: Hauptdomain auf die Plattform umleiten
+kivertrieb.net, www.kivertrieb.net {
+	import origin_tls
+	redir https://app.kivertrieb.net{uri} permanent
+}
