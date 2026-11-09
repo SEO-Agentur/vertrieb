@@ -6,8 +6,8 @@ import { DEFAULT_STAGES } from "../src/lib/pipeline";
 const db = new PrismaClient();
 
 async function main() {
-  const email = (process.env.SEED_ADMIN_EMAIL ?? "berater@example.com").toLowerCase();
-  const password = process.env.SEED_ADMIN_PASSWORD ?? "Vertrieb2026!";
+  const email = (process.env.SEED_ADMIN_EMAIL || "berater@example.com").toLowerCase();
+  const password = process.env.SEED_ADMIN_PASSWORD || "Vertrieb2026!";
   let tenant = await db.tenant.findFirst({ where: { slug: "default" } });
   if (!tenant) tenant = await db.tenant.create({ data: { name: "Vertriebspotenzial-Beratung", slug: "default" } });
   const tenantId = tenant.id;
