@@ -13,7 +13,7 @@
 | Bereich | Einstieg |
 |---|---|
 | Geschäftsmodell & Zielkunden | [[Geschäftsmodell]] · [[Zielkunden (ICP)]] |
-| Plattform | [[Plattform-Überblick]] · [[Vertriebsprozess]] · [[Kundenwelt]] · [[Integrationen]] |
+| Plattform | [[Plattform-Überblick]] · [[Vertriebsprozess]] · [[Kundenwelt]] · [[Telefonleitfaden]] · [[Integrationen]] |
 | Betrieb | [[Server & Deployment]] · [[Wartung & Updates]] · [[Datenschutz & Sicherheit]] |
 | SEO & Website | [[Website-Konzept]] · [[Keyword-Cluster]] · [[Kundenportal]] |
 | Vertrieb | [[Prospecting-Ablauf]] · [[Outreach-Regeln]] |

@@ -43,7 +43,7 @@ export default async function ContactsTab({ companyId }: TabProps) {
                 <Badge>{roleLabels[c.roleCategory ?? "OTHER"]}</Badge>
                 {c.isPrimary && <Badge tone="blue">Hauptkontakt</Badge>}
                 <Badge tone={c.outreachStatus === "REPLIED" ? "green" : c.outreachStatus === "SENT" ? "blue" : "gray"}>Outreach: {c.outreachStatus}</Badge>
-                {c.linkedinUrl && <a href={c.linkedinUrl} target="_blank" rel="noopener noreferrer" className="link ml-auto text-xs">LinkedIn ↗</a>}
+                <span className="ml-auto flex gap-3">{c.phone && <a href={`/calls/${c.id}`} className="link text-xs">Anrufen mit Leitfaden</a>}{c.linkedinUrl && <a href={c.linkedinUrl} target="_blank" rel="noopener noreferrer" className="link text-xs">LinkedIn ↗</a>}</span>
               </summary>
               <div className="border-t border-ink-100 p-4">
                 <form action={saveContactAction.bind(null, companyId, c.id)} className="space-y-3">

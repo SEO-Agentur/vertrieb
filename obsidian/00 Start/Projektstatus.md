@@ -8,6 +8,7 @@
 - Origin-Zertifikat + Caddy-Block auf dem Server, `caddy validate` erfolgreich
 - Docker-Image auf dem Server gebaut, Container laufen
 - Website- und Portal-Konzept → [[Website-Konzept]]
+- KI-gestützter Telefonleitfaden mit Arbeitsliste, Absagegründen und Wiedervorlage → [[Telefonleitfaden]]
 
 ## In Arbeit
 - Produktivstart: `.env` neu schreiben (ohne Kommentare), DB zurücksetzen, Seed → siehe [[Server & Deployment]]

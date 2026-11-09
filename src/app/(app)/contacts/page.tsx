@@ -21,7 +21,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
       <form className="mb-4 flex flex-wrap gap-2">
         <input name="q" defaultValue={sp.q} placeholder="Name oder Unternehmen" className="input w-64" />
         <select name="role" defaultValue={sp.role ?? ""} className="input w-56"><option value="">Alle Rollen</option>{Object.entries(roleLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
-        <select name="outreach" defaultValue={sp.outreach ?? ""} className="input w-48"><option value="">Alle Outreach-Status</option>{["NONE", "PREPARED", "SENT", "REPLIED", "NO_RESPONSE"].map((s) => <option key={s}>{s}</option>)}</select>
+        <select name="outreach" defaultValue={sp.outreach ?? ""} className="input w-48"><option value="">Alle Outreach-Status</option>{["NONE", "PREPARED", "SENT", "REPLIED", "NO_RESPONSE", "REJECTED", "WRONG_CONTACT"].map((s) => <option key={s}>{s}</option>)}</select>
         <button className="btn-secondary">Filtern</button>
       </form>
       {contacts.length === 0 ? <Empty>Keine Kontakte gefunden.</Empty> : (
@@ -35,7 +35,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
                 <td><Badge>{roleLabels[c.roleCategory ?? "OTHER"]}</Badge></td>
                 <td><Link className="hover:underline" href={`/companies/${c.company.id}?tab=contacts`}>{c.company.name}</Link></td>
                 <td><Badge tone={c.outreachStatus === "REPLIED" ? "green" : c.outreachStatus === "SENT" ? "blue" : "gray"}>{c.outreachStatus}</Badge></td>
-                <td>{c.linkedinUrl ? <a className="link text-xs" href={c.linkedinUrl} target="_blank" rel="noopener noreferrer">Profil ↗</a> : "–"}</td>
+                <td className="whitespace-nowrap">{c.phone && <Link className="link mr-2 text-xs" href={`/calls/${c.id}`}>Anrufen</Link>}{c.linkedinUrl ? <a className="link text-xs" href={c.linkedinUrl} target="_blank" rel="noopener noreferrer">Profil ↗</a> : null}</td>
               </tr>
             ))}</tbody>
           </table>

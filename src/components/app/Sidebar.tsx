@@ -6,7 +6,7 @@ import { logoutAction } from "@/app/login/actions";
 const NAV: { group: string; items: [string, string][] }[] = [
   { group: "", items: [["/dashboard", "Dashboard"]] },
   { group: "Gewinnung", items: [["/prospecting", "Prospecting"], ["/companies", "Unternehmen"], ["/contacts", "Ansprechpartner"], ["/qualification", "Qualifizierung"], ["/research", "Unternehmensrecherche"]] },
-  { group: "Ansprache", items: [["/rooms", "Kundenwelten"], ["/outreach", "Outreach"], ["/activities", "Aktivitäten"], ["/live", "Live-Besucher"], ["/meetings", "Videogespräche"]] },
+  { group: "Ansprache", items: [["/rooms", "Kundenwelten"], ["/outreach", "Outreach"], ["/calls", "Telefonate"], ["/activities", "Aktivitäten"], ["/live", "Live-Besucher"], ["/meetings", "Videogespräche"]] },
   { group: "Beratung", items: [["/analyses", "Potenzialanalysen"], ["/catalog", "Lösungen"], ["/offers", "Angebote"]] },
   { group: "Steuerung", items: [["/pipeline", "Sales-Pipeline"], ["/tasks", "Aufgaben"], ["/reports", "Auswertungen"], ["/settings", "Einstellungen"]] },
 ];

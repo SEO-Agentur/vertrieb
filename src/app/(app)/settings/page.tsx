@@ -8,8 +8,10 @@ import { PageHeader, Section, Field, Badge } from "@/components/ui";
 import { SubmitButton } from "@/components/SubmitButton";
 import { dateTime } from "@/lib/format";
 import * as A from "./actions";
+import { CallScriptEditor } from "./CallScriptEditor";
+import { loadCallScript, CALL_SCRIPT_KEY } from "@/lib/call-script-store";
 
-const TABS = [["profile", "Profil"], ["icp", "Zielkunden (ICP)"], ["scoring", "Lead-Scoring"], ["pipeline", "Pipeline"], ["brand", "Positionierung"], ["privacy", "Datenschutz"], ["integrations", "Integrationen"], ["users", "Benutzer"], ["audit", "Audit-Log"]] as const;
+const TABS = [["profile", "Profil"], ["icp", "Zielkunden (ICP)"], ["scoring", "Lead-Scoring"], ["pipeline", "Pipeline"], ["callscript", "Gesprächsleitfaden"], ["brand", "Positionierung"], ["privacy", "Datenschutz"], ["integrations", "Integrationen"], ["users", "Benutzer"], ["audit", "Audit-Log"]] as const;
 
 export const metadata = { title: "Einstellungen" };
 
@@ -120,6 +122,16 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               </form>
             )}
             <p className="mt-3 text-xs text-ink-500">Systemphasen (z.B. „Kundenwelt besucht“) werden bei Ereignissen automatisch gesetzt – nur vorwärts, nie aus „Gewonnen/Verloren“ heraus.</p>
+          </Section>
+        );
+      })()}
+
+      {tab === "callscript" && (async () => {
+        const script = await loadCallScript(t);
+        const custom = await db.setting.findUnique({ where: { tenantId_key: { tenantId: t, key: CALL_SCRIPT_KEY } } });
+        return (
+          <Section title="Telefon-Gesprächsleitfaden">
+            <CallScriptEditor initial={JSON.stringify(script, null, 2)} isAdmin={isAdmin} isDefault={!custom} />
           </Section>
         );
       })()}
