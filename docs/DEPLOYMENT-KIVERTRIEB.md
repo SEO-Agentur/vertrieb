@@ -1,47 +1,70 @@
-# Deployment auf app.kivertrieb.net (Server 187.77.74.66, Cloudflare)
+# Deployment auf app.kivertrieb.net (geteilter Hostinger-VPS 187.77.74.66)
 
-## 1. Cloudflare
-- DNS: `kivertrieb.net` A → 187.77.74.66, `app` und `www` CNAME → kivertrieb.net (alle „Proxied“) – bereits eingerichtet.
-- **SSL/TLS → Overview → Modus „Full (strict)“.**
-- **SSL/TLS → Origin Server → Create Certificate** (RSA, Hostnames `kivertrieb.net, *.kivertrieb.net`, 15 Jahre).
-  Zertifikat als `deploy/certs/origin.pem`, privaten Schlüssel als `deploy/certs/origin.key` auf dem Server speichern.
-- Optional: SSL/TLS → Edge Certificates → „Always Use HTTPS“ an.
+Auf dem Server laufen bereits andere Produktions-Stacks (seowebsitesbuilder, accessiblewebsite, ggf. content-king).
+**Nichts davon wird angefasst.** Dieser Stack:
 
-## 2. Server vorbereiten (Ubuntu/Debian, als root)
+| | |
+|---|---|
+| Ordner | `/opt/kivertrieb` |
+| Container | `kivertrieb-db-1`, `kivertrieb-app-1`, `kivertrieb-worker-1` (Compose-Projekt `kivertrieb`) |
+| Port | nur `127.0.0.1:4300` (Next.js); Postgres ohne Host-Port, nur intern |
+| Speicher | 768 MB App + 384 MB DB + 256 MB Worker ≈ 1,4 GB |
+| TLS | eigenes Cloudflare-Origin-Zertifikat `/etc/caddy/cf-origin-kivertrieb.crt/.key` |
+| Caddy | ein Block am **Ende** von `/etc/caddy/Caddyfile`, Reload (kein Restart) |
+
+## 1. Cloudflare (Zone kivertrieb.net)
+- DNS: `kivertrieb.net` A → 187.77.74.66, `app` + `www` CNAME → kivertrieb.net, alle „Proxied“ (vorhanden).
+- SSL/TLS → Overview → **Full (strict)**.
+- SSL/TLS → Edge Certificates → **Always Use HTTPS** an, **Automatic HTTPS Rewrites** an.
+- SSL/TLS → Origin Server → **Create Certificate** für `kivertrieb.net, *.kivertrieb.net` (Inhalt für Schritt 3 bereithalten).
+- Security/Bots: **Managed robots.txt aus**.
+
+## 2. Vorabprüfung (nur lesend)
 ```bash
-curl -fsSL https://get.docker.com | sh
-git clone https://github.com/SEO-Agentur/vertrieb /opt/vertrieb && cd /opt/vertrieb
-cp deploy/env.production.example .env.production && nano .env.production   # ausfüllen
-mkdir -p deploy/certs && nano deploy/certs/origin.pem && nano deploy/certs/origin.key
-chmod 600 deploy/certs/origin.key .env.production
+ssh -i ~/.ssh/seowebsitesbuilder_vps root@187.77.74.66 'docker ps; pm2 list; free -h; df -h /opt; ss -tlnp | grep ":4300 "'
 ```
-Firewall: nur 22, 80, 443 öffnen (z.B. `ufw allow 22,80,443/tcp && ufw enable`). Port 3000 und 5432 bleiben intern.
+Die letzte Zeile muss leer sein (Port frei).
 
-## 3. Starten
+## 3. Einrichten (auf dem Server)
 ```bash
-docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
-docker compose -f docker-compose.prod.yml --env-file .env.production run --rm app npm run db:seed
+git clone https://github.com/SEO-Agentur/vertrieb /opt/kivertrieb && cd /opt/kivertrieb
+cp deploy/env.production.example .env && chmod 600 .env && nano .env
+nano /etc/caddy/cf-origin-kivertrieb.crt      # Origin-Zertifikat einfügen
+nano /etc/caddy/cf-origin-kivertrieb.key      # privaten Schlüssel einfügen
+chmod 600 /etc/caddy/cf-origin-kivertrieb.key && chown caddy:caddy /etc/caddy/cf-origin-kivertrieb.*
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml logs -f --tail=100     # ~60 s beobachten, dann Strg+C
+docker compose -f docker-compose.prod.yml exec app npm run db:seed
 ```
-Dann https://app.kivertrieb.net aufrufen und mit `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` anmelden.
 
-## 4. Updates
+## 4. Caddy (Block anhängen, validieren, neu laden – nicht neu starten)
 ```bash
-cd /opt/vertrieb && git pull
-docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-$(date +%F-%H%M)
+cat /opt/kivertrieb/deploy/Caddyfile.snippet >> /etc/caddy/Caddyfile
+caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
 ```
-Datenbank-Migrationen laufen beim Start automatisch.
+Schlägt `validate` fehl: Backup zurückkopieren, **nicht** neu laden.
 
-## 5. Backups
+## 5. Prüfen
 ```bash
-docker compose -f docker-compose.prod.yml exec db pg_dump -U postgres salesplatform | gzip > backup-$(date +%F).sql.gz
+curl -sI https://app.kivertrieb.net/login | head -1      # 200
+curl -s https://app.kivertrieb.net/api/health            # {"ok":true}
+docker compose -f docker-compose.prod.yml ps
+docker stats --no-stream
 ```
-Zusätzlich das Volume `storage` (hochgeladene Dokumente) sichern. Täglich per Cron einrichten.
 
-## 6. Video (LiveKit)
-WebRTC-Medienverkehr kann **nicht** über den Cloudflare-Proxy laufen. Empfehlung für den Start: **LiveKit Cloud** (Region EU)
-→ `LIVEKIT_URL=wss://…livekit.cloud`, Key und Secret in `.env.production`, danach `up -d` erneut ausführen.
-Selbst hosten ist möglich (eigene Subdomain mit „DNS only“, UDP-Ports), aber deutlich aufwendiger.
+## Updates
+```bash
+cd /opt/kivertrieb && git pull && docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+```
+Migrationen laufen beim Start des App-Containers automatisch.
 
-## Hinweise
-- Live-Besucher (Server-Sent Events) funktionieren über Cloudflare; die App sendet alle 2,5 s ein Lebenszeichen.
-- Kundenwelten werden per `X-Robots-Tag: noindex` von Suchmaschinen ausgeschlossen.
+## Backups
+```bash
+cd /opt/kivertrieb && docker compose -f docker-compose.prod.yml exec -T db pg_dump -U postgres salesplatform | gzip > /root/kivertrieb-$(date +%F).sql.gz
+```
+Zusätzlich Volume `kivertrieb_storage` (hochgeladene Dokumente) sichern.
+
+## Video & E-Mail
+- **Video:** WebRTC läuft nicht über den Cloudflare-Proxy → LiveKit Cloud (Region EU), Werte in `.env`, danach `up -d`.
+- **E-Mail:** Port 25 ist bei Hostinger gesperrt → Transaktionsdienst (Resend, Postmark …) per SMTP auf Port 587.

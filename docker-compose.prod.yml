@@ -1,50 +1,60 @@
-# Produktion auf einem einzelnen Server (z.B. 187.77.74.66) hinter Cloudflare.
-# Start:  docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+# Produktion auf dem geteilten Hostinger-VPS 187.77.74.66 (Projektordner /opt/kivertrieb).
+# - Der vorhandene Host-Caddy (Port 80/443) leitet app.kivertrieb.net an 127.0.0.1:4300 weiter.
+# - Keine eigenen Ports nach außen, Postgres nur im internen Docker-Netz.
+# - Gesamt-Speicher begrenzt auf ca. 1,4 GB (andere Stacks auf dem Server nicht gefährden).
+# Start (im Ordner /opt/kivertrieb, Geheimnisse in ./.env):
+#   docker compose -f docker-compose.prod.yml up -d --build
+name: kivertrieb
+
 services:
   db:
-    image: postgres:16
+    image: postgres:16.4
     restart: unless-stopped
+    mem_limit: 384m
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt in .env}
       POSTGRES_DB: salesplatform
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
-      retries: 10
+      retries: 20
 
   app:
     build: .
+    image: kivertrieb-app:local
     restart: unless-stopped
-    env_file: .env.production
+    mem_limit: 768m
+    env_file: .env
     environment:
+      NODE_ENV: production
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/salesplatform
+      NODE_OPTIONS: --max-old-space-size=512
+    ports: ["127.0.0.1:4300:3000"]
     depends_on:
       db: { condition: service_healthy }
     volumes: [storage:/app/storage]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
 
   worker:
-    build: .
+    image: kivertrieb-app:local
     restart: unless-stopped
+    mem_limit: 256m
     command: npm run worker
-    env_file: .env.production
+    env_file: .env
     environment:
+      NODE_ENV: production
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/salesplatform
     depends_on:
       db: { condition: service_healthy }
-
-  caddy:
-    image: caddy:2
-    restart: unless-stopped
-    ports: ["80:80", "443:443"]
-    volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./deploy/certs:/etc/caddy/certs:ro
-      - caddydata:/data
-    depends_on: [app]
+      app: { condition: service_started }
 
 volumes:
   pgdata:
   storage:
-  caddydata:
