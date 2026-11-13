@@ -1,14 +1,10 @@
-# ── kivertrieb (ans ENDE von /etc/caddy/Caddyfile anhängen, nichts anderes ändern) ──
-app.kivertrieb.net {
+# ── kivertrieb (ans ENDE von /etc/caddy/Caddyfile anhängen bzw. bestehenden kivertrieb-Block ersetzen) ──
+# Eine Anwendung für beide Domains: kivertrieb.net = Website, app.kivertrieb.net = Plattform.
+app.kivertrieb.net, kivertrieb.net, www.kivertrieb.net {
 	tls /etc/caddy/cf-origin-kivertrieb.crt /etc/caddy/cf-origin-kivertrieb.key
 	encode gzip zstd
 	# flush_interval -1: Server-Sent Events (Live-Besucher) ohne Pufferung
 	reverse_proxy 127.0.0.1:4300 {
 		flush_interval -1
 	}
-}
-
-kivertrieb.net, www.kivertrieb.net {
-	tls /etc/caddy/cf-origin-kivertrieb.crt /etc/caddy/cf-origin-kivertrieb.key
-	redir https://app.kivertrieb.net{uri} permanent
 }

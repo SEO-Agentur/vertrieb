@@ -73,3 +73,21 @@ Zusätzlich Volume `kivertrieb_storage` (hochgeladene Dokumente) sichern.
 ## Video & E-Mail
 - **Video:** WebRTC läuft nicht über den Cloudflare-Proxy → LiveKit Cloud (Region EU), Werte in `.env`, danach `up -d`.
 - **E-Mail:** Port 25 ist bei Hostinger gesperrt → Transaktionsdienst (Resend, Postmark …) per SMTP auf Port 587.
+
+## Website auf kivertrieb.net (seit 13.11.2026)
+
+Die Website ist Teil derselben Anwendung (`src/app/w`). Die Middleware erkennt die Domain: `kivertrieb.net` zeigt die
+Website, `www.` leitet auf die Hauptdomain um, `app.kivertrieb.net` bleibt die Plattform. Anfragen aus den Formularen
+landen als Unternehmen + Kontakt + Aufgabe + Benachrichtigung im CRM (Quelle „WEBSITE“).
+
+Umstellung auf dem Server (einmalig):
+```bash
+cd /opt/kivertrieb && git pull && docker compose -f docker-compose.prod.yml up -d --build
+cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-$(date +%F-%H%M)
+nano /etc/caddy/Caddyfile   # den bisherigen kivertrieb-Teil (app-Block + Redirect-Block) durch deploy/Caddyfile.snippet ersetzen
+caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
+curl -sI https://kivertrieb.net/ | head -1          # 200
+curl -sI https://app.kivertrieb.net/login | head -1 # 200
+```
+Optional in `.env`: `SITE_URL=https://kivertrieb.net`, `SITE_HOSTS=kivertrieb.net,www.kivertrieb.net` (Standardwerte).
+Vor dem Livegang: Impressum, Datenschutz und „Über mich“ ersetzen (Platzhalter in `src/app/w/`).
