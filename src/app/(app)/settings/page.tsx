@@ -9,6 +9,8 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { dateTime } from "@/lib/format";
 import * as A from "./actions";
 import { CallScriptEditor } from "./CallScriptEditor";
+import { AiKeyForm } from "./AiKeyForm";
+import { getAiConfig, AI_MODELS } from "@/lib/ai/config";
 import { loadCallScript, CALL_SCRIPT_KEY } from "@/lib/call-script-store";
 
 const TABS = [["profile", "Profil"], ["icp", "Zielkunden (ICP)"], ["scoring", "Lead-Scoring"], ["pipeline", "Pipeline"], ["callscript", "Gesprächsleitfaden"], ["brand", "Positionierung"], ["privacy", "Datenschutz"], ["integrations", "Integrationen"], ["users", "Benutzer"], ["audit", "Audit-Log"]] as const;
@@ -178,12 +180,16 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
       {tab === "integrations" && (async () => {
         const outbox = await db.outboxEmail.findMany({ where: { tenantId: t }, orderBy: { createdAt: "desc" }, take: 20 });
+        const aiCfg = await getAiConfig(t);
         return (
           <div className="space-y-6">
+            <Section title="KI (Anthropic Claude)">
+              <AiKeyForm isAdmin={isAdmin} source={aiCfg.source} hint={aiCfg.hint} model={aiCfg.model} updatedAt={aiCfg.updatedAt} decryptFailed={aiCfg.decryptFailed} models={AI_MODELS.map((m) => ({ id: m.id, label: m.label }))} />
+            </Section>
             <Section title="Status der Integrationen">
               <table className="table">
                 <thead><tr><th>Integration</th><th>Status</th><th>Details</th><th>Benötigte Konfiguration</th></tr></thead>
-                <tbody>{integrationStates().map((i) => (
+                <tbody>{(await integrationStates()).map((i) => (
                   <tr key={i.key}><td className="font-medium">{i.name}</td><td><Badge tone={i.enabled ? "green" : "amber"}>{i.enabled ? "aktiv" : "nicht aktiviert"}</Badge></td><td className="text-xs">{i.detail}</td><td className="text-xs text-ink-500">{i.required.join(", ")}</td></tr>
                 ))}</tbody>
               </table>

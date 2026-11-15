@@ -34,7 +34,7 @@ export default async function CallPage({ params }: { params: Promise<{ contactId
         vars={{ firstName: contact.firstName, lastName: contact.lastName, company: c.name, industry: c.industry ?? "B2B", topic: topics[0] ?? "Neukundengewinnung und Angebotserstellung", consultant: user.name }}
         topics={topics}
         history={activities.map((a) => ({ id: a.id, title: a.title, body: a.body, date: dateTime(a.createdAt) }))}
-        aiEnabled={aiStatus().enabled}
+        aiEnabled={(await aiStatus(user.tenantId)).enabled}
       />
     </div>
   );

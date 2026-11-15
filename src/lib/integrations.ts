@@ -6,12 +6,12 @@ import { seoStatus } from "./seo";
 
 export type IntegrationState = { key: string; name: string; enabled: boolean; detail: string; required: string[] };
 
-export function integrationStates(): IntegrationState[] {
-  const ai = aiStatus();
+export async function integrationStates(): Promise<IntegrationState[]> {
+  const ai = await aiStatus();
   const video = videoStatus();
   const seo = seoStatus();
   return [
-    { key: "ai", name: `KI-Provider (${ai.provider}, ${ai.model})`, enabled: ai.enabled, detail: ai.enabled ? "Aktiv" : `Nicht aktiviert – ${ai.reason}`, required: ["ANTHROPIC_API_KEY", "AI_MODEL (optional)"] },
+    { key: "ai", name: `KI-Provider (${ai.provider}, ${ai.model})`, enabled: ai.enabled, detail: ai.enabled ? "Aktiv" : `Nicht aktiviert – ${ai.reason}`, required: ["API-Key in Einstellungen → Integrationen (oder ANTHROPIC_API_KEY)"] },
     { key: "video", name: "Videoberatung (LiveKit)", enabled: video.enabled, detail: video.enabled ? `Aktiv – ${video.url}` : `Nicht aktiviert – ${video.reason}`, required: ["LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET"] },
     { key: "smtp", name: "E-Mail-Versand (SMTP)", enabled: smtpConfigured(), detail: smtpConfigured() ? "Aktiv" : "Nicht aktiviert – E-Mails landen im Postausgang mit Status NOT_CONFIGURED", required: ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"] },
     { key: "seo", name: "SEO-Scanner (guaranteedseoservices.com)", enabled: seo.enabled, detail: seo.enabled ? "API-Endpunkt konfiguriert" : `Nicht aktiviert – ${seo.reason}. Manueller JSON-/CSV-Import ist verfügbar.`, required: ["SEO_SCANNER_API_URL", "SEO_SCANNER_API_KEY"] },

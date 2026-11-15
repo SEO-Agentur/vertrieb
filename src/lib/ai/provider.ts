@@ -2,6 +2,7 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { getAiConfig } from "./config";
 
 /**
  * Austauschbare KI-Provider-Schicht. Aktuell implementiert: Anthropic (Claude).
@@ -9,12 +10,29 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
  */
 export type AiStatus = { enabled: boolean; provider: string; model: string; reason?: string };
 
-export function aiStatus(): AiStatus {
+export async function aiStatus(tenantId?: string): Promise<AiStatus> {
   const provider = process.env.AI_PROVIDER ?? "anthropic";
-  const model = process.env.AI_MODEL ?? "claude-opus-5-5";
+  const cfg = await getAiConfig(tenantId);
+  const model = cfg.model;
   if (provider !== "anthropic") return { enabled: false, provider, model, reason: `Provider "${provider}" ist nicht implementiert.` };
-  if (!process.env.ANTHROPIC_API_KEY) return { enabled: false, provider, model, reason: "ANTHROPIC_API_KEY ist nicht gesetzt." };
+  if (cfg.decryptFailed && !cfg.apiKey) return { enabled: false, provider, model, reason: "Gespeicherter API-Key kann nicht entschlüsselt werden (SESSION_SECRET geändert?) – bitte in Einstellungen → Integrationen neu eingeben." };
+  if (!cfg.apiKey) return { enabled: false, provider, model, reason: "Kein API-Key hinterlegt (Einstellungen → Integrationen)." };
   return { enabled: true, provider, model };
+}
+
+/** Prüft den Key mit einer kostenlosen Abfrage der verfügbaren Modelle. */
+export async function testAiConnection(apiKey: string): Promise<{ ok: boolean; message: string }> {
+  try {
+    const client = new Anthropic({ apiKey, maxRetries: 0, timeout: 15_000 });
+    const page = await client.models.list({ limit: 5 });
+    return { ok: true, message: `Verbindung erfolgreich (${page.data.length} Modelle abrufbar).` };
+  } catch (e) {
+    if (e instanceof Anthropic.AuthenticationError) return { ok: false, message: "Key ungültig oder widerrufen (401)." };
+    if (e instanceof Anthropic.PermissionDeniedError) return { ok: false, message: "Key hat keine Berechtigung (403)." };
+    if (e instanceof Anthropic.APIConnectionError) return { ok: false, message: "Keine Verbindung zu api.anthropic.com (Netzwerk/Firewall prüfen)." };
+    if (e instanceof Anthropic.APIError) return { ok: false, message: `Fehler der API: ${e.status ?? ""} ${e.message}` };
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 export class AiNotEnabledError extends Error {}
@@ -29,19 +47,22 @@ Grundregeln:
 
 /** Strukturierte Ausgabe mit Zod-Validierung. Wirft AiNotEnabledError, wenn kein Provider konfiguriert ist. */
 export async function generateStructured<T extends z.ZodTypeAny>(opts: {
+  tenantId?: string;
+  system?: string;
   task: string;
   untrustedData: Record<string, unknown>;
   schema: T;
   effort?: "low" | "medium" | "high";
   maxTokens?: number;
 }): Promise<z.infer<T>> {
-  const status = aiStatus();
+  const status = await aiStatus(opts.tenantId);
   if (!status.enabled) throw new AiNotEnabledError(status.reason ?? "KI nicht aktiviert");
-  const client = new Anthropic();
+  const cfg = await getAiConfig(opts.tenantId);
+  const client = new Anthropic({ apiKey: cfg.apiKey! });
   const response = await client.messages.parse({
     model: status.model,
     max_tokens: opts.maxTokens ?? 16000,
-    system: BASE_SYSTEM,
+    system: opts.system ?? BASE_SYSTEM,
     output_config: { effort: opts.effort ?? "medium", format: zodOutputFormat(opts.schema) },
     messages: [
       {

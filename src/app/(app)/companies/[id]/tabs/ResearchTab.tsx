@@ -14,7 +14,7 @@ export default async function ResearchTab({ companyId }: TabProps) {
     db.companyFact.findMany({ where: { companyId }, orderBy: [{ category: "asc" }, { createdAt: "desc" }] }),
     db.improvementHypothesis.findMany({ where: { companyId }, orderBy: { order: "asc" } }),
   ]);
-  const ai = aiStatus();
+  const ai = await aiStatus();
   const unreviewed = hyps.filter((h) => !h.reviewed).length;
   const groups = facts.reduce<Record<string, typeof facts>>((acc, f) => ((acc[f.category] ??= []).push(f), acc), {});
   return (

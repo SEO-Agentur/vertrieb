@@ -63,7 +63,7 @@ export async function assistAction(contactId: string, nodeId: string, input: str
   const text = input.trim().slice(0, 1000);
   const script = await loadCallScript(user.tenantId);
   if (!text) return ruleAssist(script, nodeId, "");
-  const status = aiStatus();
+  const status = await aiStatus(user.tenantId);
   if (!status.enabled) return { ...ruleAssist(script, nodeId, text), aiDisabledReason: status.reason };
   const node = script.nodes.find((n) => n.id === nodeId);
   try {

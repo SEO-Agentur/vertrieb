@@ -106,7 +106,7 @@ export async function deleteMessageAction(id: string) {
 export async function aiRewriteAction(id: string, form: FormData) {
   const user = await requireEditor();
   const m = await messageForUser(id, user.tenantId);
-  if (!aiStatus().enabled) throw new Error("KI ist nicht aktiviert.");
+  if (!(await aiStatus()).enabled) throw new Error("KI ist nicht aktiviert.");
   if (m.status === "SENT" || m.status === "REPLIED") throw new Error("Bereits gesendet.");
   const instruction = optStr(form, "instruction")?.slice(0, 500) ?? "Mache die Nachricht persönlicher und prägnanter.";
   const company = await db.company.findUniqueOrThrow({ where: { id: m.companyId } });

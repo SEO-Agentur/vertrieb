@@ -91,9 +91,10 @@ function missingFields(c: Company): string[] {
  */
 export async function runResearch(company: Company & { contacts: Contact[] }, opts: { preferAi: boolean }): Promise<ResearchResult> {
   const facts = await db.companyFact.findMany({ where: { companyId: company.id, status: { in: ["VERIFIED", "ESTIMATED"] } } });
-  const status = aiStatus();
+  const status = await aiStatus(company.tenantId);
   if (opts.preferAi && status.enabled) {
     const result = await generateStructured({
+      tenantId: company.tenantId,
       task: "Analysiere das folgende Unternehmen für eine gemeinsame Vertriebs-Potenzialanalyse. Leite mögliche Verbesserungsthemen nur als Hypothesen ab. Erfinde keine Fakten.",
       untrustedData: {
         unternehmen: {

@@ -125,3 +125,47 @@ export async function deleteStageAction(id: string) {
   await db.pipelineStage.deleteMany({ where: { id, tenantId: user.tenantId } });
   revalidatePath("/settings");
 }
+
+// ───── KI-Zugang (API-Key verschlüsselt in der Datenbank) ─────
+export type AiKeyState = { ok?: boolean; message?: string; error?: string };
+
+export async function saveAiKeyAction(_prev: AiKeyState, form: FormData): Promise<AiKeyState> {
+  const user = await requireAdmin();
+  const { saveAiConfig, getAiConfig, AI_MODELS } = await import("@/lib/ai/config");
+  const { testAiConnection } = await import("@/lib/ai/provider");
+  const op = str(form, "op");
+  const model = str(form, "model");
+  if (model && !AI_MODELS.some((m) => m.id === model)) return { error: "Unbekanntes Modell." };
+
+  if (op === "remove") {
+    await saveAiConfig(user.tenantId, { apiKey: null, userId: user.id });
+    await audit({ tenantId: user.tenantId, actorType: "USER", actorId: user.id, action: "settings.ai_key_removed" });
+    revalidatePath("/settings");
+    return { ok: true, message: "API-Key entfernt. KI ist deaktiviert (sofern keine Umgebungsvariable gesetzt ist)." };
+  }
+
+  if (op === "test") {
+    const cfg = await getAiConfig(user.tenantId);
+    if (!cfg.apiKey) return { error: "Kein API-Key hinterlegt." };
+    const r = await testAiConnection(cfg.apiKey);
+    return r.ok ? { ok: true, message: r.message } : { error: r.message };
+  }
+
+  const apiKey = str(form, "apiKey").replace(/\s+/g, "");
+  if (!apiKey) {
+    if (!model) return { error: "Bitte einen API-Key eingeben." };
+    await saveAiConfig(user.tenantId, { model, userId: user.id });
+    await audit({ tenantId: user.tenantId, actorType: "USER", actorId: user.id, action: "settings.ai_model", meta: { model } });
+    revalidatePath("/settings");
+    return { ok: true, message: `Modell gespeichert: ${model}` };
+  }
+  if (!apiKey.startsWith("sk-ant-") || apiKey.length < 30 || apiKey.length > 300) return { error: "Das sieht nicht wie ein Anthropic-API-Key aus (beginnt mit „sk-ant-“)." };
+  const test = await testAiConnection(apiKey);
+  if (!test.ok && !test.message.startsWith("Keine Verbindung")) return { error: `Nicht gespeichert: ${test.message}` };
+  await saveAiConfig(user.tenantId, { apiKey, model: model || undefined, userId: user.id });
+  await audit({ tenantId: user.tenantId, actorType: "USER", actorId: user.id, action: "settings.ai_key_saved", meta: { hint: apiKey.slice(-4), tested: test.ok } });
+  revalidatePath("/settings");
+  return test.ok
+    ? { ok: true, message: `Gespeichert und geprüft. ${test.message}` }
+    : { ok: true, message: `Gespeichert, aber nicht prüfbar: ${test.message}` };
+}

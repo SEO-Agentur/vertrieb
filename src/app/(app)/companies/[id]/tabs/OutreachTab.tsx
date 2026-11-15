@@ -12,7 +12,7 @@ export default async function OutreachTab({ companyId, user }: TabProps) {
     db.outreachMessage.findMany({ where: { companyId }, include: { contact: true }, orderBy: { createdAt: "desc" } }),
     db.room.findUnique({ where: { companyId }, select: { status: true } }),
   ]);
-  const ai = aiStatus();
+  const ai = await aiStatus(user.tenantId);
   const editor = user.role !== "VIEWER";
   return (
     <div className="space-y-6">

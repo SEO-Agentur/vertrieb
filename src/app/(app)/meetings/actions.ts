@@ -107,7 +107,7 @@ export type AiAssistResult = z.infer<typeof AiAssistSchema>;
 export async function runAiAssist(_prev: { result?: AiAssistResult; error?: string } | null, form: FormData): Promise<{ result?: AiAssistResult; error?: string }> {
   const user = await requireEditor();
   const m = await meetingForUser(str(form, "meetingId"), user);
-  if (!aiStatus().enabled) return { error: aiStatus().reason };
+  { const st = await aiStatus(); if (!st.enabled) return { error: st.reason }; }
   const [company, notes, findings, categories, solutions] = await Promise.all([
     db.company.findUniqueOrThrow({ where: { id: m.companyId } }),
     db.meetingNote.findMany({ where: { meetingId: m.id }, orderBy: { createdAt: "asc" } }),

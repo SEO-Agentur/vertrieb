@@ -9,7 +9,7 @@ export const metadata = { title: "Unternehmensrecherche" };
 
 export default async function ResearchPage() {
   const user = await requireUser();
-  const ai = aiStatus();
+  const ai = await aiStatus(user.tenantId);
   const [pending, notResearched, unverifiedRevenue] = await Promise.all([
     db.company.findMany({ where: { tenantId: user.tenantId, hypotheses: { some: { reviewed: false } } }, include: { _count: { select: { hypotheses: { where: { reviewed: false } } } } } }),
     db.company.findMany({ where: { tenantId: user.tenantId, researchedAt: null, qualificationStatus: { in: ["QUALIFIED", "IN_PROGRESS", "NEW"] } }, orderBy: { score: { sort: "desc", nulls: "last" } }, take: 50 }),

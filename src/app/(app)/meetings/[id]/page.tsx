@@ -36,7 +36,7 @@ export default async function MeetingWorkspace({ params, searchParams }: { param
   ]);
   const closed = ["ENDED", "CANCELLED", "DECLINED"].includes(m.status);
   const video = videoStatus();
-  const ai = aiStatus();
+  const ai = await aiStatus(user.tenantId);
 
   return (
     <div>
